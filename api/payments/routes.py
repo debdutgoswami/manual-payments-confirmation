@@ -36,16 +36,19 @@ def participants(current_user):
 
         output = []
         for participant in participants:
-            output.append({
-                'name' : participant.name,
-                'email' : participant.email,
-                'department' : participant.department,
-                'year' : participant.year,
-                'student_chapter_id' : participant.student_chapter_id
-            })
+            # show only those who have not paid
+            if not participant.payment_status:
+                output.append({
+                    'name' : participant.name,
+                    'email' : participant.email,
+                    'department' : participant.department,
+                    'year' : participant.year,
+                    'student_chapter_id' : participant.student_chapter_id
+                })
 
         return jsonify({'participants' : output})
 
+    # creating new participants
     elif request.method == 'POST':
         participant = request.get_json()
 
@@ -56,6 +59,38 @@ def participants(current_user):
         db.session.commit()
 
         return jsonify({'message' : 'Successfully added participant!'})
+
+@app.route('/paid', methods=['GET'])
+@token_required
+def paid(current_user):
+    participants = Participant.query.all()
+
+    output = []
+    for participant in participants:
+        # show only those who have paid
+        if participant.payment_status:
+            output.append({
+                'name' : participant.name,
+                'email' : participant.email,
+                'department' : participant.department,
+                'year' : participant.year,
+                'student_chapter_id' : participant.student_chapter_id,
+                'public_id' : participant.public_id
+            })
+
+    return jsonify({'participants' : output})
+
+@app.route('/pay/<public_id>', methods=['PUT'])
+@token_required
+def pay(current_user, public_id):
+    user = Participant.query.filter_by(public_id=public_id).first()
+    if not user:
+        return jsonify({'message': 'No User Found'})
+
+    user.payment_status = True
+    db.session.commit()
+
+    return jsonify({'message' : 'User Has Paid'})
 
 @app.route('/admin', methods=['POST'])
 def create_admin():
@@ -68,7 +103,7 @@ def create_admin():
     db.session.add(new_admin)
     db.session.commit()
 
-@app.route('/login', method=['POST'])
+@app.route('/login', methods=['POST'])
 def login():
     auth = request.get_json()
 
